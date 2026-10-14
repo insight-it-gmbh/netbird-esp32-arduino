@@ -1,0 +1,11 @@
+# arduino-cli build output
+build/
+*.bin
+*.elf
+*.map
+# local secrets for test builds
+*.local
+secrets.local.h
+__pycache__/
+# real credentials belong in arduino_secrets.h, created from arduino_secrets.h.example - never commit it
+arduino_secrets.h

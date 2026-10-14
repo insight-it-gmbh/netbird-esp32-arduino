@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  ESP32_CORE: "3.3.12"
+
+jobs:
+  lint:
+    name: Arduino library lint
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: arduino/arduino-lint-action@v2
+        with:
+          library-manager: submit
+          compliance: strict
+
+  sync:
+    name: src/ matches netbird-esp32
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check out netbird-esp32 at the commit recorded in UPSTREAM
+        run: |
+          read -r url sha < UPSTREAM
+          git clone --quiet "$url" "$RUNNER_TEMP/netbird-esp32"
+          git -C "$RUNNER_TEMP/netbird-esp32" checkout --quiet "$sha"
+      - name: Regenerate and compare
+        run: python3 tools/sync_upstream.py "$RUNNER_TEMP/netbird-esp32" --check
+
+  compile:
+    name: Compile examples (${{ matrix.board }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        board: [esp32, esp32s2, esp32s3, esp32c3, esp32c6]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: arduino/setup-arduino-cli@v2
+      - name: Install the ESP32 core ${{ env.ESP32_CORE }}
+        run: |
+          arduino-cli config init
+          arduino-cli config add board_manager.additional_urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli core update-index
+          arduino-cli core install "esp32:esp32@$ESP32_CORE"
+      - name: Compile with all warnings
+        run: |
+          for ex in examples/*/; do
+            cp "$ex/arduino_secrets.h.example" "$ex/arduino_secrets.h"
+            name=$(basename "$ex")
+            arduino-cli compile --fqbn "esp32:esp32:${{ matrix.board }}:PartitionScheme=huge_app" \
+              --warnings all --library "$PWD" --build-path "build/$name" "$ex"
+            rm "$ex/arduino_secrets.h"
+          done
+      - name: Exported symbols carry the netbird-lite prefixes
+        run: python3 tools/check_symbols.py build/TestServer
