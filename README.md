@@ -105,9 +105,11 @@ on 4 MB boards the default layout is tight (Basic uses 94% of it), so pick Huge 
 | ESP32, ESP32-S2, ESP32-S3, ESP32-C3 | compile with all warnings on; not hardware-tested yet |
 
 Measured on the ESP32-C6 with the TestServer example: the library adds 76 KB of flash and 22 KB of
-static RAM; while connected the client uses about 65 KB of heap. A 200 KB download through the
-relay ran at 36 kB/s (the Arduino TCP defaults are smaller than the ESP-IDF example's; the pure
-protocol path reaches 145 kB/s, see the netbird-esp32 README).
+static RAM, and the board had 137 KB of free heap while connected. A 200 KB download from the
+TestServer through the relay ran at 36 kB/s; the ESP-IDF example reaches 145 kB/s on the same
+board. Part of the gap is the TCP window: the precompiled Arduino core fixes it at lwIP's default
+of 4 segments, and on ESP-IDF going from 4 to 16 segments raised throughput from 60 to 150 kB/s.
+The rest of the gap has not been investigated yet.
 
 ## Configuration
 
